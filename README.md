@@ -38,7 +38,7 @@ def generate_math_problem():
 
     return {"question": question, "answer": answer}
 ```
-Then we can call it infinitely! I already ran this for all 
+Then we can call it infinitely! I already ran this for all 8000 GSM8K train examples, so you don't have to! Some did not make it, but we got most of them (7306 of 7400). The rest were edge cases I did not care to investigate further. Enjoy! 
 
 ## Example how to use this after downloading (gsm8k_train_programs.txt):
 ```
