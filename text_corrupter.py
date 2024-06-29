@@ -172,7 +172,7 @@ def generate_match_mask(tokenizer, string_true, string_corrupted):
     tokens_corrupted = tokenizer.tokenize(string_corrupted)
     
     # Initialize the match mask with zeros
-    match_mask = [0] * len(tokens_true)
+    match_mask = [0 for _ in range(len(tokens_true))]
     
     # Calculate the minimum length to avoid index out of range
     min_length = min(len(tokens_true), len(tokens_corrupted))
