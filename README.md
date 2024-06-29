@@ -1,23 +1,25 @@
 # sentence_augs
 
-Inspired by the fantastic library imaug (https://imgaug.readthedocs.io/en/latest/) there should be a way to "explode" a train set of sentences (input-output pairs) to make millions more augmented by a functions that will likely happen at test time to improve generalization. 
+Inspired by the fantastic library imaug (https://imgaug.readthedocs.io/en/latest/) there should be a way to "explode" a train set of sentences (input-output pairs) to make millions more augmented by a functions that will likely happen at test time to improve generalization.  WARNING: This is scrapy research code so use at your own peril. :)
 
---------------------------------------------------------------------------------
-Grammar/Logic Lossless augs:
---------------------------------------------------------------------------------
-
-- swap_with_synonym (find all verbs / adjectives, and loop over and look up synonymns and replace.. i.e. Suzy is a "mean" person. She "yelled at" Greg yesterday. -> Suzy is a[ill-mannered,impolite,discourteous,impertinent,insolent,impudent,cheeky,audacious,presumptuous,uncivil,unpleasant,disagreeable,nasty,harsh] person. She [berated, castigated, chewed out, dressed down, punished, reprimanded, ripped into, scolded, told off] Greg yesterday.
+# Grammar/Logic Lossless augs: 
+## Code in (./program_generator.py)
+- **swap_with_synonym** (find all verbs / adjectives, and loop over and look up synonymns and replace.. i.e. Suzy is a "mean" person. She "yelled at" Greg yesterday. -> Suzy is a[ill-mannered,impolite,discourteous,impertinent,insolent,impudent,cheeky,audacious,presumptuous,uncivil,unpleasant,disagreeable,nasty,harsh] person. She [berated, castigated, chewed out, dressed down, punished, reprimanded, ripped into, scolded, told off] Greg yesterday.
 )
-- swap_pronouns (find all pronouns, and loop over and find all and replace.. i.e. Suzy likes to bike. Suzy likes to bike with Greg sometimes, Greg does not like biking with Suzy. -> Dan likes to bike. Dan likes to bike with Greg sometimes, Greg does not like biking with Dan.)
-- turn_into_program_and_sample_randomly: (take GSM8k for example, take each "math problem" turn it into a program and then make infinite examples of it so your model won't overfit to the text and will abstract further to learn to solve the actual problem...) i.e.
+- **swap_pronouns** (find all pronouns, and loop over and find all and replace.. i.e. Suzy likes to bike. Suzy likes to bike with Greg sometimes, Greg does not like biking with Suzy. -> Dan likes to bike. Dan likes to bike with Greg sometimes, Greg does not like biking with Dan.)
+- **turn_into_program_and_sample_randomly**: (take GSM8k for example, take each "math problem" turn it into a program and then make infinite examples of it so your model won't overfit to the text and will abstract further to learn to solve the actual problem...) i.e. example from GSM8k:
+  
+```
+{
+'question': 'Alexis is applying for a new job and bought a new set of business clothes to wear to the interview. She went to a department store with a budget of $617 and spent $44 on a button-up shirt, $39 on suit pants, $45 on a suit coat, $56 on socks, and $47 on a belt. She also purchased a pair of shoes, but lost the receipt for them. She has $39 left from her budget. How much did Alexis pay for the shoes?', 
 
--- {'question': 'Alexis is applying for a new job and bought a new set of business clothes to wear to the interview. She went to a department store with a budget of $617 and spent $44 on a button-up shirt, $39 on suit pants, $45 on a suit coat, $56 on socks, and $47 on a belt. She also purchased a pair of shoes, but lost the receipt for them. She has $39 left from her budget. How much did Alexis pay for the shoes?', 
+'answer': 'Let S be the amount Alexis paid for the shoes.\nShe spent S + 44 + 39 + 45 + 56 + 47 = S + <<+44+39+45+56+47=231>>231.\nShe used all but $39 of her budget, so S + 231 = 617 - 39 = 578. Thus, Alexis paid S = 578 - 231 = $<<578-231=347>>347 for the shoes.\n#### 347'
+} 
+```
 
--- 'answer': 'Let S be the amount Alexis paid for the shoes.\nShe spent S + 44 + 39 + 45 + 56 + 47 = S + <<+44+39+45+56+47=231>>231.\nShe used all but $39 of her budget, so S + 231 = 617 - 39 = 578. Thus, Alexis paid S = 578 - 231 = $<<578-231=347>>347 for the shoes.\n#### 347'} 
+We want to turn that into a program like so:
 
-
--- we want to turn that into a program like so:
-
+```
 def generate_math_problem():
     budget = random.randint(100, 1000)
     shirt_cost = random.randint(10, budget//6)
@@ -35,14 +37,40 @@ def generate_math_problem():
     answer = f'Let S be the amount Alexis paid for the shoes.\nShe spent S + {shirt_cost} + {pants_cost} + {coat_cost} + {socks_cost} + {belt_cost} = S + <<+{shirt_cost}+{pants_cost}+{coat_cost}+{socks_cost}+{belt_cost}={sum_of_costs_without_shoes}>>{sum_of_costs_without_shoes}.\nShe used all but ${left_over_money} of her budget, so S + {sum_of_costs_without_shoes} = {budget} - {left_over_money} = {total_spent_without_left_over}.\nThus, Alexis paid S = {total_spent_without_left_over} - {sum_of_costs_without_shoes} = $<<{total_spent_without_left_over}-{sum_of_costs_without_shoes}={shoes_cost}>>{shoes_cost} for the shoes.\n#### {shoes_cost}'
 
     return {"question": question, "answer": answer}
+```
+Then we can call it infinitely! I already ran this for all 
 
+## Example how to use this after downloading (gsm8k_train_programs.txt):
+```
+from program_generator import text_generator_positive
 
--- Then we can call it infinitely.
+output_file = './gsm8k_train_programs.txt'
 
---------------------------------------------------------------------------------
-Grammar Lossy augs (useful for reward modeling):
---------------------------------------------------------------------------------
+# Define the delimiter
+delimiter = "-----------<this will be used to split on later>----------------"
 
+# Initialize an empty list to store the programs
+list_of_programs = []
+
+# Read the file
+with open(output_file, 'r') as file:
+    # Read the entire content of the file
+    content = file.read()
+    
+    # Split the content based on the delimiter
+    list_of_programs = content.split(delimiter)
+
+# Strip any leading or trailing whitespace from each program
+list_of_programs = [program.strip() for program in list_of_programs]
+print('# programs: '+str(len(list_of_programs)))
+
+# Now you can call all of the programs like so:
+for program_text in list_of_programs:
+    print(text_generator_positive(program_text,n_examples=5))
+```
+
+# Grammar Lossy augs (useful for reward modeling):
+## Code in (./text_corrupter.py)
 - addword (add a random word into a seq..)
 - subtractword  (sub a random word from a seq..)
 - swapwords  (swap random words in a seq..)
@@ -54,16 +82,12 @@ Grammar Lossy augs (useful for reward modeling):
 - addspaces   (add random spaces to the seq)
 
 
---------------------------------------------------------------------------------
-# Example how to use this:
---------------------------------------------------------------------------------
-
-
+## Example how to use this:
 ```
+from text_corrupter import text_corrupter_negative,generate_match_mask
 
 model_id = "EleutherAI/pythia-70m-v0"
 tokenizer = AutoTokenizer.from_pretrained(model_id)
-base_model = AutoModelForCausalLM.from_pretrained(model_id)
 
 user_prompt = "User: Natalia sold clips to 48 of her friends in April, and then she sold half as many clips in May. How many clips did Natalia sell altogether in April and May?"
 
