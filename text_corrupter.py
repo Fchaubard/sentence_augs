@@ -126,7 +126,7 @@ def text_corrupter_negative(y):
         return y
 
     operation = random.choice(operations)
-    print("chosen operation is: " + operation)
+    # print("chosen operation is: " + operation)
 
     if operation == "addword":
         y_words_with_newlines, pos = add_random_word(y_words_with_lines)
