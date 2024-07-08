@@ -161,27 +161,15 @@ def text_corrupter_negative(y):
         y_corrupted = ' '.join(y_words_with_newlines)
         y_corrupted = y_corrupted.replace(' \n', '\n').replace('\n ', '\n') 
         
-
     return y_corrupted
 
 def generate_match_mask(tokenizer, string_true, string_corrupted):
-    # Generate a mask for reward sampling that will be 0 where the aug occurred, and 1 where it matches.
-
-    # Tokenize the input strings
-    tokens_true = tokenizer.tokenize(string_true)
-    tokens_corrupted = tokenizer.tokenize(string_corrupted)
+    tokens_true = tokenizer.encode(string_true, return_tensors='pt')[0]
+    tokens_corrupted = tokenizer.encode(string_corrupted, return_tensors='pt')[0]
     
-    # Initialize the match mask with zeros
-    match_mask = [0 for _ in range(len(tokens_true))]
-    
-    # Calculate the minimum length to avoid index out of range
     min_length = min(len(tokens_true), len(tokens_corrupted))
+    match_mask = (tokens_true[:min_length] == tokens_corrupted[:min_length]).int()
+    match_mask = torch.cat([match_mask, torch.zeros(len(tokens_corrupted) - min_length, dtype=torch.int)], dim=0)
     
-    # Compare tokens and generate the match mask
-    for i in range(min_length):
-        if tokens_true[i] == tokens_corrupted[i]:
-            match_mask[i] = 1
-    
-    return match_mask
-
+    return match_mask.tolist()
     
